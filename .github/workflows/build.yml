@@ -15,28 +15,37 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Compile Swift Executable for iOS
+      - name: Compile App via xcodebuild
         run: |
-          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-          swift build -c release \
-            --triple arm64-apple-ios16.0 \
-            -Xswiftc -sdk -Xswiftc "$SDK_PATH"
+          xcodebuild build \
+            -scheme My_App \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            PRODUCT_BUNDLE_IDENTIFIER=com.test.jitemulator
 
       - name: Package IPA
         run: |
           mkdir -p Payload/JITEmulator.app
           
-          # Copy compiled binary into app bundle
-          cp .build/arm64-apple-ios16.0/release/My_App Payload/JITEmulator.app/My_App
+          # Find compiled binary or app bundle
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -name "*.app" | head -n 1)
+          BIN_PATH=$(find build/Build/Products/Release-iphoneos -type f -name "My_App" | head -n 1)
           
-          # Generate iOS Info.plist
-          PLIST="Payload/JITEmulator.app/Info.plist"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string My_App" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.test.jitemulator" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleName string JITEmulator" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundlePackageType string APPL" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 1.0" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 16.0" "$PLIST"
+          if [ -n "$APP_PATH" ]; then
+            cp -r "$APP_PATH" Payload/
+          else
+            cp "$BIN_PATH" Payload/JITEmulator.app/My_App
+            PLIST="Payload/JITEmulator.app/Info.plist"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string My_App" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.test.jitemulator" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleName string JITEmulator" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundlePackageType string APPL" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 1.0" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 16.0" "$PLIST"
+          fi
           
           zip -r JITEmulator.ipa Payload
 
