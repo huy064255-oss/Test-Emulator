@@ -17,7 +17,10 @@ jobs:
 
       - name: Compile Swift Executable for iOS
         run: |
-          swift build -c release --triple arm64-apple-ios16.0
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          swift build -c release \
+            --triple arm64-apple-ios16.0 \
+            -Xswiftc -sdk -Xswiftc "$SDK_PATH"
 
       - name: Package IPA
         run: |
