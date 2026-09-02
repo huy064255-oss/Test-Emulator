@@ -15,28 +15,18 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Generate Xcode Project
-        run: swift package generate-xcodeproj || true
-
-      - name: Compile App Bundle
+      - name: Compile Swift Executable for iOS
         run: |
-          xcodebuild -scheme My_App-Package \
-                     -destination 'generic/platform=iOS' \
-                     -configuration Release \
-                     -derivedDataPath build \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGNING_REQUIRED=NO \
-                     PRODUCT_BUNDLE_IDENTIFIER=com.test.jitemulator
+          swift build -c release --triple arm64-apple-ios16.0
 
       - name: Package IPA
         run: |
           mkdir -p Payload/JITEmulator.app
           
-          # Copy executable binary
-          EXEC_PATH=$(find build/Build/Products -type f -name "My_App" | head -n 1)
-          cp "$EXEC_PATH" Payload/JITEmulator.app/My_App
+          # Copy compiled binary into app bundle
+          cp .build/arm64-apple-ios16.0/release/My_App Payload/JITEmulator.app/My_App
           
-          # Create Info.plist using PlistBuddy (avoids YAML parsing errors)
+          # Generate iOS Info.plist
           PLIST="Payload/JITEmulator.app/Info.plist"
           /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string My_App" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.test.jitemulator" "$PLIST"
