@@ -16,13 +16,10 @@ jobs:
           xcode-version: latest-stable
 
       - name: Generate Xcode Project
-        run: |
-          # Convert SwiftPM package into an Xcode project
-          swift package generate-xcodeproj || true
+        run: swift package generate-xcodeproj || true
 
       - name: Compile App Bundle
         run: |
-          # Build target for iOS arm64
           xcodebuild -scheme My_App-Package \
                      -destination 'generic/platform=iOS' \
                      -configuration Release \
@@ -33,38 +30,21 @@ jobs:
 
       - name: Package IPA
         run: |
-          mkdir -p Payload
-          # Locate generated .app or create Payload container
-          APP_PATH=$(find build/Build/Products -name "*.app" | head -n 1)
-          if [ -n "$APP_PATH" ]; then
-            cp -r "$APP_PATH" Payload/
-          else
-            # Fallback: Package executable into an App bundle structure
-            mkdir -p Payload/JITEmulator.app
-            cp $(find build/Build/Products -type f -name "My_App" | head -n 1) Payload/JITEmulator.app/
-            
-            # Create minimal Info.plist for iOS
-            cat << 'EOF' > Payload/JITEmulator.app/Info.plist
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>CFBundleExecutable</key>
-                <string>My_App</string>
-                <key>CFBundleIdentifier</key>
-                <string>com.test.jitemulator</string>
-                <key>CFBundleName</key>
-                <string>JITEmulator</string>
-                <key>CFBundlePackageType</key>
-                <string>APPL</string>
-                <key>CFBundleShortVersionString</key>
-                <string>1.0</string>
-                <key>MinimumOSVersion</key>
-                <string>16.0</string>
-            </dict>
-            </plist>
-EOF
-          fi
+          mkdir -p Payload/JITEmulator.app
+          
+          # Copy executable binary
+          EXEC_PATH=$(find build/Build/Products -type f -name "My_App" | head -n 1)
+          cp "$EXEC_PATH" Payload/JITEmulator.app/My_App
+          
+          # Create Info.plist using PlistBuddy (avoids YAML parsing errors)
+          PLIST="Payload/JITEmulator.app/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string My_App" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.test.jitemulator" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleName string JITEmulator" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundlePackageType string APPL" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 1.0" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 16.0" "$PLIST"
+          
           zip -r JITEmulator.ipa Payload
 
       - name: Upload IPA Artifact
