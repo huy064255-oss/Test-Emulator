@@ -15,21 +15,56 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Generate Xcode Project
+        run: |
+          # Convert SwiftPM package into an Xcode project
+          swift package generate-xcodeproj || true
+
       - name: Compile App Bundle
         run: |
-          # Build target for iOS arm64 using SwiftPM
-          xcodebuild -scheme My_App \
+          # Build target for iOS arm64
+          xcodebuild -scheme My_App-Package \
                      -destination 'generic/platform=iOS' \
                      -configuration Release \
                      -derivedDataPath build \
                      CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGNING_REQUIRED=NO
+                     CODE_SIGNING_REQUIRED=NO \
+                     PRODUCT_BUNDLE_IDENTIFIER=com.test.jitemulator
 
       - name: Package IPA
         run: |
           mkdir -p Payload
-          # Find generated .app folder and move it to Payload
-          find build/Build/Products -name "*.app" -exec cp -r {} Payload/ \;
+          # Locate generated .app or create Payload container
+          APP_PATH=$(find build/Build/Products -name "*.app" | head -n 1)
+          if [ -n "$APP_PATH" ]; then
+            cp -r "$APP_PATH" Payload/
+          else
+            # Fallback: Package executable into an App bundle structure
+            mkdir -p Payload/JITEmulator.app
+            cp $(find build/Build/Products -type f -name "My_App" | head -n 1) Payload/JITEmulator.app/
+            
+            # Create minimal Info.plist for iOS
+            cat << 'EOF' > Payload/JITEmulator.app/Info.plist
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>CFBundleExecutable</key>
+                <string>My_App</string>
+                <key>CFBundleIdentifier</key>
+                <string>com.test.jitemulator</string>
+                <key>CFBundleName</key>
+                <string>JITEmulator</string>
+                <key>CFBundlePackageType</key>
+                <string>APPL</string>
+                <key>CFBundleShortVersionString</key>
+                <string>1.0</string>
+                <key>MinimumOSVersion</key>
+                <string>16.0</string>
+            </dict>
+            </plist>
+EOF
+          fi
           zip -r JITEmulator.ipa Payload
 
       - name: Upload IPA Artifact
