@@ -15,14 +15,21 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Build App
+      - name: Compile App Bundle
         run: |
-          xcodebuild -project *.swiftpm/project.xcworkspace -scheme My_App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          # Build target for iOS arm64 using SwiftPM
+          xcodebuild -scheme My_App \
+                     -destination 'generic/platform=iOS' \
+                     -configuration Release \
+                     -derivedDataPath build \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO
 
       - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/*.app Payload/
+          # Find generated .app folder and move it to Payload
+          find build/Build/Products -name "*.app" -exec cp -r {} Payload/ \;
           zip -r JITEmulator.ipa Payload
 
       - name: Upload IPA Artifact
